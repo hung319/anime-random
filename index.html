@@ -48,12 +48,22 @@
             return result;
         };
 
+        // Hàm sử dụng proxy server để gọi API
+        const fetchWithProxy = async (url) => {
+            const proxyUrl = 'https://cors-anywhere.herokuapp.com/'; // Thay thế bằng URL của proxy server của bạn
+            const response = await fetch(proxyUrl + url);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response;
+        };
+
         const fetchImage = async () => {
             try {
-                const response = await fetch('https://nekos.best/api/v2/waifu');
+                const response = await fetchWithProxy('https://nekos.best/api/v2/waifu');
                 const data = await response.json();
                 const imageUrl = data.results[0].url;
-                const imageResponse = await fetch(imageUrl);
+                const imageResponse = await fetchWithProxy(imageUrl);
                 const imageBlob = await imageResponse.blob();
 
                 // Lấy tên file từ URL (phần cuối sau dấu '/')
