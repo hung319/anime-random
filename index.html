@@ -48,10 +48,10 @@
             return result;
         };
 
-        // Hàm sử dụng proxy server để gọi API
+        // Hàm sử dụng Cloudflare Worker proxy để gọi API
         const fetchWithProxy = async (url) => {
-            const proxyUrl = 'https://cors-anywhere.herokuapp.com/'; // Thay thế bằng URL của proxy server của bạn
-            const response = await fetch(proxyUrl + url);
+            const proxyUrl = 'https://proud-field-51ec.hungh6122.workers.dev/?url=';
+            const response = await fetch(proxyUrl + encodeURIComponent(url));
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
