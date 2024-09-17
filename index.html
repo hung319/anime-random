@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tải ảnh Anime (với Proxy)</title>
+    <title>Tải ảnh Anime (Đơn giản hóa)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     <style>
@@ -26,9 +26,9 @@
     </style>
 </head>
 <body>
-    <h1>Tải ảnh Anime (với Proxy)</h1>
+    <h1>Tải ảnh Anime (Đơn giản hóa)</h1>
     <label for="imageCount">Số lượng ảnh tải xuống:</label>
-    <input type="number" id="imageCount" value="5" min="1" max="50">
+    <input type="number" id="imageCount" value="5" min="1" max="100">
     <button id="downloadBtn">Tải ảnh và nén ZIP</button>
     <div id="status"></div>
 
@@ -36,11 +36,8 @@
         const downloadBtn = document.getElementById('downloadBtn');
         const status = document.getElementById('status');
         const imageCountInput = document.getElementById('imageCount');
-        const CONCURRENT_LIMIT = 3;
-        const RETRY_LIMIT = 3;
-        const DELAY_BETWEEN_REQUESTS = 1000; // 1 giây
 
-        const PROXY_URL = 'https://cors-anywhere.herokuapp.com/';
+        const PROXY_URL = 'https://small-brook-9bd2.hungh6122.workers.dev/?url=';
 
         const generateRandomString = (length) => {
             const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -51,79 +48,41 @@
             return result;
         };
 
-        const getRandomUserAgent = () => {
-            const userAgents = [
-                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-                'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.1 Safari/605.1.15',
-                'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:89.0) Gecko/20100101 Firefox/89.0',
-                'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.101 Safari/537.36'
-            ];
-            return userAgents[Math.floor(Math.random() * userAgents.length)];
-        };
-
-        const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-        const fetchImage = async (retryCount = 0) => {
-            try {
-                const response = await fetch(PROXY_URL + 'https://nekos.best/api/v2/waifu', {
-                    headers: {
-                        'User-Agent': getRandomUserAgent(),
-                        'X-Requested-With': 'XMLHttpRequest'
-                    }
-                });
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                const data = await response.json();
-                const imageUrl = data.results[0].url;
-                const imageResponse = await fetch(PROXY_URL + imageUrl, {
-                    headers: {
-                        'User-Agent': getRandomUserAgent(),
-                        'X-Requested-With': 'XMLHttpRequest'
-                    }
-                });
-                const imageBlob = await imageResponse.blob();
-                const fileName = imageUrl.split('/').pop();
-                return { imageBlob, fileName };
-            } catch (error) {
-                console.error('Lỗi khi tải ảnh:', error);
-                if (retryCount < RETRY_LIMIT) {
-                    await delay(DELAY_BETWEEN_REQUESTS);
-                    return fetchImage(retryCount + 1);
-                }
-                return null;
+        const fetchImage = async () => {
+            const response = await fetch(PROXY_URL + encodeURIComponent('https://nekos.best/api/v2/waifu'));
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
             }
+            const data = await response.json();
+            const imageUrl = data.results[0].url;
+            const imageResponse = await fetch(PROXY_URL + encodeURIComponent(imageUrl));
+            const imageBlob = await imageResponse.blob();
+            const fileName = imageUrl.split('/').pop();
+            return { imageBlob, fileName };
         };
 
         const downloadImages = async (count) => {
             const zip = new JSZip();
             let completed = 0;
-            const promises = [];
 
             for (let i = 0; i < count; i++) {
-                if (promises.length >= CONCURRENT_LIMIT) {
-                    await Promise.all(promises);
-                    promises.length = 0;
-                }
-
-                const imagePromise = fetchImage().then(result => {
+                try {
+                    const result = await fetchImage();
                     if (result && result.imageBlob) {
                         zip.file(result.fileName, result.imageBlob);
                         completed++;
                         status.textContent = `Đã tải ${completed}/${count} ảnh`;
                     }
-                });
-
-                promises.push(imagePromise);
-                await delay(DELAY_BETWEEN_REQUESTS);
+                } catch (error) {
+                    console.error('Lỗi khi tải ảnh:', error);
+                }
             }
 
-            await Promise.all(promises);
             return zip.generateAsync({ type: 'blob' });
         };
 
         downloadBtn.addEventListener('click', async () => {
-            const imagesToDownload = Math.min(parseInt(imageCountInput.value) || 5, 50);
+            const imagesToDownload = parseInt(imageCountInput.value) || 5;
             status.textContent = 'Đang tải ảnh...';
 
             try {
