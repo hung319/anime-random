@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tải ảnh Anime (Đơn giản hóa)</title>
+    <title>Tải ảnh Anime</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     <style>
@@ -26,7 +26,7 @@
     </style>
 </head>
 <body>
-    <h1>Tải ảnh Anime (Đơn giản hóa)</h1>
+    <h1>Tải ảnh Anime</h1>
     <label for="imageCount">Số lượng ảnh tải xuống:</label>
     <input type="number" id="imageCount" value="5" min="1" max="100">
     <button id="downloadBtn">Tải ảnh và nén ZIP</button>
@@ -36,8 +36,8 @@
         const downloadBtn = document.getElementById('downloadBtn');
         const status = document.getElementById('status');
         const imageCountInput = document.getElementById('imageCount');
-
-        const PROXY_URL = 'https://small-brook-9bd2.hungh6122.workers.dev/?url=';
+        const CONCURRENT_LIMIT = 5;
+        const CORS_PROXY = 'https://test.cors.workers.dev/?';
 
         const generateRandomString = (length) => {
             const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -49,35 +49,56 @@
         };
 
         const fetchImage = async () => {
-            const response = await fetch(PROXY_URL + encodeURIComponent('https://nekos.best/api/v2/waifu'));
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+            try {
+                const response = await fetch(CORS_PROXY + 'https://nekos.best/api/v2/waifu', {
+                    headers: {
+                        'x-cors-headers': JSON.stringify({
+                            'User-Agent': 'AnimeImageDownloader/1.0'
+                        })
+                    }
+                });
+                const data = await response.json();
+                const imageUrl = data.results[0].url;
+                const imageResponse = await fetch(CORS_PROXY + imageUrl, {
+                    headers: {
+                        'x-cors-headers': JSON.stringify({
+                            'User-Agent': 'AnimeImageDownloader/1.0'
+                        })
+                    }
+                });
+                const imageBlob = await imageResponse.blob();
+
+                const fileName = imageUrl.split('/').pop();
+                return { imageBlob, fileName };
+            } catch (error) {
+                console.error('Lỗi khi tải ảnh:', error);
+                return null;
             }
-            const data = await response.json();
-            const imageUrl = data.results[0].url;
-            const imageResponse = await fetch(PROXY_URL + encodeURIComponent(imageUrl));
-            const imageBlob = await imageResponse.blob();
-            const fileName = imageUrl.split('/').pop();
-            return { imageBlob, fileName };
         };
 
         const downloadImages = async (count) => {
             const zip = new JSZip();
             let completed = 0;
+            const promises = [];
 
             for (let i = 0; i < count; i++) {
-                try {
-                    const result = await fetchImage();
+                if (promises.length >= CONCURRENT_LIMIT) {
+                    await Promise.all(promises);
+                    promises.length = 0;
+                }
+
+                const imagePromise = fetchImage().then(result => {
                     if (result && result.imageBlob) {
                         zip.file(result.fileName, result.imageBlob);
                         completed++;
                         status.textContent = `Đã tải ${completed}/${count} ảnh`;
                     }
-                } catch (error) {
-                    console.error('Lỗi khi tải ảnh:', error);
-                }
+                });
+
+                promises.push(imagePromise);
             }
 
+            await Promise.all(promises);
             return zip.generateAsync({ type: 'blob' });
         };
 
@@ -87,11 +108,14 @@
 
             try {
                 const zipBlob = await downloadImages(imagesToDownload);
+
                 const randomZipName = generateRandomString(10) + '.zip';
                 saveAs(zipBlob, randomZipName);
+
                 status.textContent = `Đã tải xong! Kiểm tra file ZIP (${randomZipName}) của bạn.`;
             } catch (error) {
                 status.textContent = 'Đã xảy ra lỗi khi tải ảnh.';
+                console.error('Lỗi:', error);
             }
         });
     </script>
