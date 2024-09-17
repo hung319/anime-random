@@ -37,6 +37,7 @@
         const status = document.getElementById('status');
         const imageCountInput = document.getElementById('imageCount');
         const CONCURRENT_LIMIT = 5;
+        const API_URL = "https://wibu-api.eu.org/api/anipics/sfw/waifu?x_wibu_key=WIBUAPI-6OvURS2tetkGAkswx-B4Q3gCNfXqABVf8VoWz6IO1EHcUHzg14dPolme-lZYeFXrYdRFPGCfRi0dipiDFXV1ZJ9Yyur7H0f530_Lag";
 
         const generateRandomString = (length) => {
             const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -49,13 +50,12 @@
 
         const fetchImage = async () => {
             try {
-                const response = await fetch('https://api.waifu.im/search');
-                const data = await response.json();
-                const imageUrl = data.images[0].url;
-                const imageResponse = await fetch(imageUrl);
-                const imageBlob = await imageResponse.blob();
-
-                const fileName = imageUrl.split('/').pop();
+                const response = await fetch(API_URL);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const imageBlob = await response.blob();
+                const fileName = `waifu_${generateRandomString(8)}.jpg`;
                 return { imageBlob, fileName };
             } catch (error) {
                 console.error('Lỗi khi tải ảnh:', error);
@@ -96,12 +96,13 @@
             try {
                 const zipBlob = await downloadImages(imagesToDownload);
 
-                const randomZipName = generateRandomString(10) + '.zip';
+                const randomZipName = `waifu_images_${generateRandomString(6)}.zip`;
                 saveAs(zipBlob, randomZipName);
 
                 status.textContent = `Đã tải xong! Kiểm tra file ZIP (${randomZipName}) của bạn.`;
             } catch (error) {
                 status.textContent = 'Đã xảy ra lỗi khi tải ảnh.';
+                console.error('Lỗi:', error);
             }
         });
     </script>
